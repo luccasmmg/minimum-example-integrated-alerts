@@ -144,8 +144,14 @@ function App() {
   });
   const mapRef = useRef<MapRef | null>(null);
 
+  const logs = {
+    logMap: mapRef.current,
+    viewState: viewState,
+    layers: integratedAlerts,
+  };
   return (
     <>
+      <button onClick={() => console.log(logs)}>Log Map</button>
       <Map
         {...viewState}
         ref={(_map) => {
@@ -153,11 +159,6 @@ function App() {
         }}
         onMove={(evt) => setViewState(evt.viewState)}
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
           height: "100%",
         }}
         mapStyle="mapbox://styles/mapbox/light-v9"
