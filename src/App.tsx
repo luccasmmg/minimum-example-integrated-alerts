@@ -132,18 +132,20 @@ const integratedAlerts = {
         return null;
       },
       minZoom: 3,
-      maxZoom: 12,
+      maxZoom: 20,
     } as any),
   ],
 };
 function App() {
   const [viewState, setViewState] = useState({
-    longitude: -100,
-    latitude: 40,
-    zoom: 3.5,
+    longitude: -50,
+    latitude: -10,
+    zoom: 6,
   });
   const mapRef = useRef<MapRef | null>(null);
+  const [ready, setReady] = useState(false);
 
+  console.log('zoom', viewState.zoom)
   const logs = {
     logMap: mapRef.current,
     viewState: viewState,
@@ -159,12 +161,15 @@ function App() {
         }}
         onMove={(evt) => setViewState(evt.viewState)}
         style={{
-          height: "100%",
+          height: "800px",
         }}
-        mapStyle="mapbox://styles/mapbox/light-v9"
+        mapStyle="mapbox://styles/mapbox/dark-v11"
         mapboxAccessToken="pk.eyJ1IjoicmVzb3VyY2V3YXRjaCIsImEiOiJjajFlcXZhNzcwMDBqMzNzMTQ0bDN6Y3U4In0.FRcIP_yusVaAy0mwAX1B8w"
+        onLoad={() => {
+          setReady(true);
+        }}
       >
-        {!!mapRef.current && <LayerManagerWrapper />}
+        {ready && <LayerManagerWrapper />}
       </Map>
     </>
   );
