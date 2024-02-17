@@ -12,13 +12,44 @@ import CartoProvider from "@vizzuality/layer-manager-provider-carto";
 
 const cartoProvider = new CartoProvider();
 
-const integratedAlerts = {
-  type: "deck" as const,
-  id: "test",
-  deck: [
-    new MapboxLayer({
-      decodeFunction: `
-  // First 6 bits Alpha channel used to individual alert confidence
+const gladFunction = `
+    // values for creating power scale, domain (input), and range (output)
+    float confidenceValue = 0.;
+    if (confirmedOnly > 0.) {
+      confidenceValue = 200.;
+    }
+    float day = color.r * 255. * 255. + (color.g * 255.);
+    float confidence = color.b * 255.;
+
+    if (
+      day > 0. &&
+      day >= startDayIndex &&
+      day <= endDayIndex &&
+      confidence >= confidenceValue
+    ) {
+      // get intensity
+      float intensity = mod(confidence, 100.) * 150.;
+      if (intensity > 255.) {
+        intensity = 255.;
+      }
+      if (confidence < 200.) {
+        color.r = 237. / 255.;
+        color.g = 164. / 255.;
+        color.b = 194. / 255.;
+        alpha = intensity / 255.;
+      } else {
+        color.r = 220. / 255.;
+        color.g = 102. / 255.;
+        color.b = 153. / 255.;
+        alpha = intensity / 255.;
+      }
+    } else {
+      alpha = 0.;
+    }
+  `;
+
+const integratedFunction = `
+// First 6 bits Alpha channel used to individual alert confidence
     // First two bits (leftmost) are GLAD-L
     // Next, 3rd and 4th bits are GLAD-S2
     // Finally, 5th and 6th bits are RADD
@@ -78,7 +109,20 @@ const integratedAlerts = {
     } else {
       alpha = 0.;
     }
-  `,
+ `;
+
+const deckLayer = ({
+  decodeFunction,
+  dataUrl,
+}: {
+  decodeFunction: string;
+  dataUrl: string;
+}) => ({
+  type: "deck" as const,
+  id: dataUrl,
+  deck: [
+    new MapboxLayer({
+      decodeFunction: decodeFunction,
       decodeParams: {
         startDayIndex: 2785,
         endDayIndex: 3334,
@@ -86,7 +130,7 @@ const integratedAlerts = {
         confirmedOnly: 0,
       },
       type: TileLayer,
-      data: "https://tiles.globalforestwatch.org/gfw_integrated_alerts/latest/default/{z}/{x}/{y}.png",
+      data: dataUrl,
       tileSize: 256,
       refinementStrategy: "no-overlap",
       visible: true,
@@ -135,24 +179,53 @@ const integratedAlerts = {
       maxZoom: 20,
     } as any),
   ],
-};
+});
 function App() {
   const [viewState, setViewState] = useState({
     longitude: -50,
     latitude: -10,
     zoom: 6,
   });
+  const integrated = {
+    decodeFunction: integratedFunction,
+    dataUrl:
+      "https://tiles.globalforestwatch.org/gfw_integrated_alerts/latest/default/{z}/{x}/{y}.png",
+  };
+  const glads = {
+    decodeFunction: gladFunction,
+    dataUrl:
+      "https://tiles.globalforestwatch.org/umd_glad_landsat_alerts/latest/default/{z}/{x}/{y}.png",
+  };
   const mapRef = useRef<MapRef | null>(null);
   const [ready, setReady] = useState(false);
+  const [alert, setAlert] = useState(deckLayer(integrated));
+  const [message, setMessage] = useState("Showing integrated");
 
-  console.log('zoom', viewState.zoom)
   const logs = {
     logMap: mapRef.current,
     viewState: viewState,
-    layers: integratedAlerts,
+    layers: alert,
   };
   return (
     <>
+      <span>{message}</span>
+      <div>
+      <button
+        onClick={() => {
+          setMessage("Showing integrated");
+          setAlert(deckLayer(integrated));
+        }}
+      >
+        Show integrated
+      </button>
+      <button
+        onClick={() => {
+          setMessage("Showing glads");
+          setAlert(deckLayer(glads));
+        }}
+      >
+        Show glads
+      </button>
       <button onClick={() => console.log(logs)}>Log Map</button>
       <Map
         {...viewState}
@@ -169,13 +242,14 @@ function App() {
           setReady(true);
         }}
       >
-        {ready && <LayerManagerWrapper />}
+        {ready && <LayerManagerWrapper alert={alert} />}
       </Map>
+      </div>
     </>
   );
 }
 
-function LayerManagerWrapper() {
+function LayerManagerWrapper({ alert }: { alert: any }) {
   const { current: map } = useMap();
   return map && map.getMap() ? (
     <LayerManager
@@ -185,7 +259,7 @@ function LayerManagerWrapper() {
         [cartoProvider.name]: cartoProvider.handleData,
       }}
     >
-      <Layer key={integratedAlerts.id} {...integratedAlerts} />
+      <Layer key={alert.id} {...alert} />
     </LayerManager>
   ) : (
     <></>
